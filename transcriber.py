@@ -16,7 +16,7 @@ FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 16000
 RECORD_SECONDS = 5  # Duration per recording chunk
-SAVE_INTERVAL_SECONDS = 300  # Save transcript every 5 minutes (300 seconds)
+SAVE_INTERVAL_SECONDS = 30 # Save transcript every 5 minutes (300 seconds)
 
 # Load OpenAI API key from config.json
 with open('config.json') as f:
@@ -48,11 +48,13 @@ def record_to_file(filename, duration):
             wf.writeframes(b''.join(frames))
 
 def transcribe(file_path):
-    # Updated transcription logic for openai>=1.0.0
+    # Updated transcription logic for openai>=1.0.0, with Dutch language and DND prompt
     with open(file_path, "rb") as audio_file:
         transcript = openai.audio.transcriptions.create(
             model="whisper-1",
-            file=audio_file
+            file=audio_file,
+            language="nl",
+            prompt="We zijn Dungeons & Dragons aan het spelen. Jij bent de transcriber en schrijft alles zo duidelijk mogelijk op."
         )
     return transcript.text
 
