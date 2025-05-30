@@ -1,2 +1,6 @@
 # Ignore config file with secrets
-config.json
+# Ignore everything
+*
+# But not these files...
+!.gitignore
+!transcriber.py
