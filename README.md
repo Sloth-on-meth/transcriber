@@ -25,8 +25,8 @@ Create a `config.json` file in your project directory with your API keys and pro
   "openai_api_key": "YOUR_OPENAI_API_KEY",
   "groq_api_key": "YOUR_GROQ_API_KEY",
   "groq_whisper_endpoint": "https://api.groq.com/openai/v1/audio/transcriptions",
-  "prompt": "DND. 4 karakters. Grim, Gerrit, Fenomin en Bobbel. Gerrit gespeeld door sam, fenomin gespeeld door marc, bobbel gespeeld door diego, grim gespeeld door daan. DM heet amber. we doen de curse of strahd campaign.",
-  "combine_prompt": "IK stuur je een berg transcriptions van dezelfde audiobestanden. combineer deze tot 1 tekst. hier wat onderliggende info: DND. 4 karakters. Grim, Gerrit, Fenomin en Bobbel. Gerrit gespeeld door sam, fenomin gespeeld door marc, bobbel gespeeld door diego, grim gespeeld door daan. DM heet amber. we doen de curse of strahd campaign."
+  "prompt": "Optional prompt for STT providers that support it.",
+  "combine_prompt": "System prompt for combining all transcriptions into one coherent text."
 }
 ```
 
