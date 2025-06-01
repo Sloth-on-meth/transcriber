@@ -108,10 +108,7 @@ def transcribe_assemblyai(file_path):
         return f"AssemblyAI upload failed: {upload_response.text}"
     upload_url = upload_response.json().get('upload_url')
     transcript_request = {'audio_url': upload_url, 'language_code': 'nl'}
-    # Add prompt if present in config
-    prompt = config.get('prompt')
-    if prompt:
-        transcript_request['prompt'] = prompt
+    # Do NOT send prompt: Universal model does not support it
     transcript_response = requests.post('https://api.assemblyai.com/v2/transcript', json=transcript_request, headers=headers)
     response_json = transcript_response.json()
     if 'id' not in response_json:
@@ -224,27 +221,41 @@ def transcribe_groq_whisper(file_path):
         return f"Groq Whisper error: {e}"
 
 if __name__ == "__main__":
-    print("Recording 30 seconds and transcribing with all AIs. Press Ctrl+C to stop.")
+    print("Recording 30 seconds and transcribing with all AIs asynchronously. Press Ctrl+C to stop.")
     ensure_recordings_dir()
     import time
+    import concurrent.futures
     while True:
         audio_filename = tempfile.mktemp(suffix='.wav')
         record_to_file(audio_filename, RECORD_SECONDS)
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         out_path = os.path.join('recordings', f'transcription_{timestamp}.txt')
-        results = []
-        print("Transcribing with AssemblyAI...")
-        results.append(('AssemblyAI', transcribe_assemblyai(audio_filename)))
-        print("Transcribing with Speechmatics...")
-        results.append(('Speechmatics', transcribe_speechmatics(audio_filename)))
-        print("Transcribing with OpenAI Whisper...")
-        results.append(('OpenAI Whisper', transcribe_openai_whisper(audio_filename)))
-        print("Transcribing with Groq Whisper...")
-        results.append(('Groq Whisper Large-v3 Turbo', transcribe_groq_whisper(audio_filename)))
+        providers = [
+            ("AssemblyAI", transcribe_assemblyai),
+            ("Speechmatics", transcribe_speechmatics),
+            ("OpenAI Whisper", transcribe_openai_whisper),
+            ("Groq Whisper Large-v3 Turbo", transcribe_groq_whisper),
+        ]
+        results = [None] * len(providers)
+        print("Transcribing with all providers asynchronously...")
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future_to_idx = {
+                executor.submit(func, audio_filename): idx
+                for idx, (name, func) in enumerate(providers)
+            }
+            for future in concurrent.futures.as_completed(future_to_idx):
+                idx = future_to_idx[future]
+                name, _ = providers[idx]
+                try:
+                    result = future.result()
+                except Exception as exc:
+                    result = f"Exception: {exc}"
+                results[idx] = (name, result)
+                print(f"\n---\n- {name}\n- {result}\n")
         with open(out_path, 'w') as f:
             for name, text in results:
                 f.write('---\n')
                 f.write(f'- {name}\n')
                 f.write(f'- {text}\n')
         print(f"Saved all transcriptions to {out_path}")
-        time.sleep(1)  # Wait a second before next round (remove or adjust as needed)
+        time.sleep(1)
