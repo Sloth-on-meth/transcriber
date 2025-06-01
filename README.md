@@ -2,11 +2,18 @@
 
 This project takes an audio file (e.g., WAV or MP3), sends it to multiple speech-to-text (STT) providers in parallel, and saves each transcription to a separate file. Providers supported:
 - AssemblyAI
-- Speechmatics
 - OpenAI Whisper (API)
 - Groq Whisper Large-v3 Turbo
 
 All transcriptions are run asynchronously for speed. Results are printed to the console as they arrive and saved in a new timestamped subfolder in the `recordings/` directory for each run.
+
+After all transcriptions are finished, the script sends them to OpenAI ChatGPT with the following prompt (in Dutch):
+
+```
+dit zijn verschillende transcripties van 1 opname van een DND sessie. maak er 1 coherente transcriptie van
+```
+
+The combined, coherent transcript is printed to the console and saved as `Combined_OpenAI.txt` in the same run folder.
 
 ## Example config.json
 

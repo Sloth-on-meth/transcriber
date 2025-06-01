@@ -243,7 +243,6 @@ if __name__ == "__main__":
 
     providers = [
         ("AssemblyAI", transcribe_assemblyai),
-        ("Speechmatics", transcribe_speechmatics),
         ("OpenAI Whisper", transcribe_openai_whisper),
         ("Groq Whisper Large-v3 Turbo", transcribe_groq_whisper),
     ]
@@ -267,4 +266,44 @@ if __name__ == "__main__":
             out_path = os.path.join(run_dir, f"{name.replace(' ', '_').replace('-', '').replace('.', '')}.txt")
             with open(out_path, 'w') as f:
                 f.write(result)
+
     print(f"\nAll transcriptions saved in {run_dir}\n")
+
+    # Combine all results and send to OpenAI ChatGPT
+    openai_api_key = config.get('openai_api_key')
+    if not openai_api_key:
+        print("OpenAI API key missing in config.json, cannot combine transcriptions.")
+        sys.exit(1)
+    try:
+        import openai
+        prompt = "dit zijn verschillende transcripties van 1 opname van een DND sessie. maak er 1 coherente transcriptie van"
+        transcript_texts = "\n\n".join([
+            f"{name}:\n{text}" for name, text in results
+        ])
+        system_message = {"role": "system", "content": prompt}
+        user_message = {"role": "user", "content": transcript_texts}
+        try:
+            # Try new openai>=1.0.0 interface
+            from openai import OpenAI
+            client = OpenAI(api_key=openai_api_key)
+            chat_response = client.chat.completions.create(
+                model="gpt-4o",
+                messages=[system_message, user_message]
+            )
+            combined = chat_response.choices[0].message.content.strip()
+        except ImportError:
+            # Legacy fallback
+            openai.api_key = openai_api_key
+            chat_response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[system_message, user_message]
+            )
+            combined = chat_response["choices"][0]["message"]["content"].strip()
+        print("\n======\nGecombineerde transcriptie (OpenAI GPT):\n======\n")
+        print(combined)
+        combined_path = os.path.join(run_dir, "Combined_OpenAI.txt")
+        with open(combined_path, 'w') as f:
+            f.write(combined)
+        print(f"\nCombined transcript saved as {combined_path}\n")
+    except Exception as e:
+        print(f"Error combining transcripts with OpenAI: {e}")
