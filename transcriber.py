@@ -276,11 +276,11 @@ if __name__ == "__main__":
         sys.exit(1)
     try:
         import openai
-        prompt = "dit zijn verschillende transcripties van 1 opname van een DND sessie. maak er 1 coherente transcriptie van"
+        combine_prompt = config.get('combine_prompt') or "dit zijn verschillende transcripties van 1 opname van een DND sessie. maak er 1 coherente transcriptie van"
         transcript_texts = "\n\n".join([
             f"{name}:\n{text}" for name, text in results
         ])
-        system_message = {"role": "system", "content": prompt}
+        system_message = {"role": "system", "content": combine_prompt}
         user_message = {"role": "user", "content": transcript_texts}
         try:
             # Try new openai>=1.0.0 interface

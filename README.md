@@ -17,20 +17,21 @@ The combined, coherent transcript is printed to the console and saved as `Combin
 
 ## Example config.json
 
-Create a `config.json` file in your project directory with your API keys and an optional prompt:
+Create a `config.json` file in your project directory with your API keys and prompts:
 
 ```json
 {
   "assemblyai_api_key": "YOUR_ASSEMBLYAI_API_KEY",
-  "speechmatics_api_key": "YOUR_SPEECHMATICS_API_KEY",
   "openai_api_key": "YOUR_OPENAI_API_KEY",
   "groq_api_key": "YOUR_GROQ_API_KEY",
   "groq_whisper_endpoint": "https://api.groq.com/openai/v1/audio/transcriptions",
-  "prompt": "DND. 4 karakters. Grim, Gerrit, Fenomin en Bobbel. Gerrit gespeeld door sam, fenomin gespeeld door marc, bobbel gespeeld door diego, grim gespeeld door daan. DM heet amber. we doen de curse of strahd campaign."
+  "prompt": "DND. 4 karakters. Grim, Gerrit, Fenomin en Bobbel. Gerrit gespeeld door sam, fenomin gespeeld door marc, bobbel gespeeld door diego, grim gespeeld door daan. DM heet amber. we doen de curse of strahd campaign.",
+  "combine_prompt": "IK stuur je een berg transcriptions van dezelfde audiobestanden. combineer deze tot 1 tekst. hier wat onderliggende info: DND. 4 karakters. Grim, Gerrit, Fenomin en Bobbel. Gerrit gespeeld door sam, fenomin gespeeld door marc, bobbel gespeeld door diego, grim gespeeld door daan. DM heet amber. we doen de curse of strahd campaign."
 }
 ```
 
 - The `prompt` field is optional and will be used by providers that support it (OpenAI Whisper, Groq Whisper).
+- The `combine_prompt` field is used as the system prompt when sending all STT results to OpenAI ChatGPT for the final, combined transcript. If not set, a default Dutch DND prompt is used.
 - AssemblyAI currently does not support prompts for the default Universal model (the script handles this automatically).
 - All API keys are required for their respective providers.
 
