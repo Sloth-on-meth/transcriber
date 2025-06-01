@@ -15,7 +15,7 @@ CHUNK = 1024
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 16000
-RECORD_SECONDS = 6  # Duration per recording chunk (1 minute)
+RECORD_SECONDS = 30  # Duration per recording chunk (30 seconds)
 
 
 # Load OpenAI API key from config.json
@@ -94,17 +94,157 @@ def transcribe(file_path):
 
 
 
-if __name__ == "__main__":
-    print("Starting 1-minute transcription loop. Press Ctrl+C to stop.")
-    output_file = "transcriptions.txt"
+import shutil
+
+def ensure_recordings_dir():
+    if not os.path.exists('recordings'):
+        os.makedirs('recordings')
+
+def transcribe_assemblyai(file_path):
+    headers = {'authorization': assemblyai_api_key}
+    with open(file_path, 'rb') as f:
+        upload_response = requests.post('https://api.assemblyai.com/v2/upload', headers=headers, data=f)
+    if upload_response.status_code != 200:
+        return f"AssemblyAI upload failed: {upload_response.text}"
+    upload_url = upload_response.json().get('upload_url')
+    transcript_request = {'audio_url': upload_url, 'language_code': 'nl'}
+    # Add prompt if present in config
+    prompt = config.get('prompt')
+    if prompt:
+        transcript_request['prompt'] = prompt
+    transcript_response = requests.post('https://api.assemblyai.com/v2/transcript', json=transcript_request, headers=headers)
+    response_json = transcript_response.json()
+    if 'id' not in response_json:
+        return f"AssemblyAI error: {response_json}"
+    transcript_id = response_json['id']
+    while True:
+        poll_response = requests.get(f'https://api.assemblyai.com/v2/transcript/{transcript_id}', headers=headers)
+        status = poll_response.json()['status']
+        if status == 'completed':
+            return poll_response.json()['text']
+        elif status == 'failed':
+            return f"AssemblyAI transcription failed: {poll_response.json().get('error', 'Unknown error')}"
+        import time; time.sleep(3)
+
+
+def transcribe_speechmatics(file_path):
+    import json as _json
+    api_key = config.get('speechmatics_api_key')
+    if not api_key:
+        return "Speechmatics API key missing."
+    url = "https://asr.api.speechmatics.com/v2/jobs/"
+    headers = {"Authorization": f"Bearer {api_key}"}
+    files = {"data_file": open(file_path, "rb")}
+    # Speechmatics v2 expects 'config' as a JSON string
+    data = {
+        "config": _json.dumps({
+            "type": "transcription",
+            "transcription_config": {
+                "language": "nl"
+            }
+        })
+    }
+    job_resp = requests.post(url, headers=headers, files=files, data=data)
+    if job_resp.status_code != 201:
+        return f"Speechmatics job error: {job_resp.text}"
+    job_id = job_resp.json().get('id')
+    # Poll for completion
+    import time
+    while True:
+        status_resp = requests.get(f"{url}{job_id}/", headers=headers)
+        status = status_resp.json().get('job', {}).get('job_status')
+        if status == 'done':
+            # Get transcript
+            transcript_url = f"{url}{job_id}/transcript?format=txt"
+            transcript_resp = requests.get(transcript_url, headers=headers)
+            return transcript_resp.text.strip()
+        elif status == 'failed':
+            return f"Speechmatics failed: {status_resp.text}"
+        time.sleep(3)
+
+def transcribe_openai_whisper(file_path):
     try:
-        while True:
-            audio_filename = tempfile.mktemp(suffix='.wav')
-            record_to_file(audio_filename, RECORD_SECONDS)
-            transcript_text = transcribe(audio_filename)
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            with open(output_file, 'a') as f:
-                f.write(f"[{timestamp}]\n{transcript_text}\n\n")
-            print(f"Saved transcription at {timestamp} to {output_file}.")
-    except KeyboardInterrupt:
-        print("\nStopping continuous transcription.")
+        import openai
+        api_key = config.get('openai_api_key')
+        if not api_key:
+            return "OpenAI API key missing."
+        prompt = config.get('prompt')
+        try:
+            # Try new openai>=1.0.0 interface
+            from openai import OpenAI
+            client = OpenAI(api_key=api_key)
+            with open(file_path, "rb") as audio_file:
+                transcript = client.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=audio_file,
+                    language="nl",
+                    prompt=prompt if prompt else None
+                )
+            return transcript.text
+        except ImportError:
+            # Fallback to legacy
+            openai.api_key = api_key
+            with open(file_path, "rb") as audio_file:
+                transcript = openai.Audio.transcribe(
+                    model="whisper-1",
+                    file=audio_file,
+                    language="nl",
+                    prompt=prompt if prompt else None
+                )
+            return transcript['text']
+        except Exception as e:
+            return f"OpenAI Whisper error: {e}"
+    except Exception as e:
+        return f"OpenAI Whisper error: {e}"
+
+def transcribe_groq_whisper(file_path):
+    api_key = config.get('groq_api_key')
+    endpoint = config.get('groq_whisper_endpoint')
+    if not api_key or not endpoint:
+        return "Groq config missing."
+    headers = {
+        'Authorization': f'Bearer {api_key}'
+    }
+    files = {
+        'file': open(file_path, 'rb')
+    }
+    data = {
+        'model': 'whisper-large-v3',
+        'language': 'nl'
+    }
+    prompt = config.get('prompt')
+    if prompt:
+        data['prompt'] = prompt
+    try:
+        resp = requests.post(endpoint, headers=headers, files=files, data=data)
+        if resp.status_code != 200:
+            return f"Groq Whisper error: {resp.text}"
+        return resp.json().get('text', str(resp.json()))
+    except Exception as e:
+        return f"Groq Whisper error: {e}"
+
+if __name__ == "__main__":
+    print("Recording 30 seconds and transcribing with all AIs. Press Ctrl+C to stop.")
+    ensure_recordings_dir()
+    import time
+    while True:
+        audio_filename = tempfile.mktemp(suffix='.wav')
+        record_to_file(audio_filename, RECORD_SECONDS)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        out_path = os.path.join('recordings', f'transcription_{timestamp}.txt')
+        results = []
+        print("Transcribing with AssemblyAI...")
+        results.append(('AssemblyAI', transcribe_assemblyai(audio_filename)))
+        print("Transcribing with Speechmatics...")
+        results.append(('Speechmatics', transcribe_speechmatics(audio_filename)))
+        print("Transcribing with OpenAI Whisper...")
+        results.append(('OpenAI Whisper', transcribe_openai_whisper(audio_filename)))
+        print("Transcribing with Groq Whisper...")
+        results.append(('Groq Whisper Large-v3 Turbo', transcribe_groq_whisper(audio_filename)))
+        with open(out_path, 'w') as f:
+            for name, text in results:
+                f.write('---\n')
+                f.write(f'- {name}\n')
+                f.write(f'- {text}\n')
+        print(f"Saved all transcriptions to {out_path}")
+        time.sleep(1)  # Wait a second before next round (remove or adjust as needed)
