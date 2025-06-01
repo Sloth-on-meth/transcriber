@@ -221,41 +221,50 @@ def transcribe_groq_whisper(file_path):
         return f"Groq Whisper error: {e}"
 
 if __name__ == "__main__":
-    print("Recording 30 seconds and transcribing with all AIs asynchronously. Press Ctrl+C to stop.")
-    ensure_recordings_dir()
+    import sys
     import time
     import concurrent.futures
-    while True:
-        audio_filename = tempfile.mktemp(suffix='.wav')
-        record_to_file(audio_filename, RECORD_SECONDS)
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        out_path = os.path.join('recordings', f'transcription_{timestamp}.txt')
-        providers = [
-            ("AssemblyAI", transcribe_assemblyai),
-            ("Speechmatics", transcribe_speechmatics),
-            ("OpenAI Whisper", transcribe_openai_whisper),
-            ("Groq Whisper Large-v3 Turbo", transcribe_groq_whisper),
-        ]
-        results = [None] * len(providers)
-        print("Transcribing with all providers asynchronously...")
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future_to_idx = {
-                executor.submit(func, audio_filename): idx
-                for idx, (name, func) in enumerate(providers)
-            }
-            for future in concurrent.futures.as_completed(future_to_idx):
-                idx = future_to_idx[future]
-                name, _ = providers[idx]
-                try:
-                    result = future.result()
-                except Exception as exc:
-                    result = f"Exception: {exc}"
-                results[idx] = (name, result)
-                print(f"\n---\n- {name}\n- {result}\n")
-        with open(out_path, 'w') as f:
-            for name, text in results:
-                f.write('---\n')
-                f.write(f'- {name}\n')
-                f.write(f'- {text}\n')
-        print(f"Saved all transcriptions to {out_path}")
-        time.sleep(1)
+    from datetime import datetime
+    import os
+
+    if len(sys.argv) != 2:
+        print("Usage: python transcriber.py <audiofile.wav>")
+        sys.exit(1)
+    audio_filename = sys.argv[1]
+    if not os.path.isfile(audio_filename):
+        print(f"File not found: {audio_filename}")
+        sys.exit(1)
+
+    # Create a new subfolder in 'recordings' for this run
+    ensure_recordings_dir()
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    run_dir = os.path.join('recordings', f'run_{timestamp}')
+    os.makedirs(run_dir, exist_ok=True)
+
+    providers = [
+        ("AssemblyAI", transcribe_assemblyai),
+        ("Speechmatics", transcribe_speechmatics),
+        ("OpenAI Whisper", transcribe_openai_whisper),
+        ("Groq Whisper Large-v3 Turbo", transcribe_groq_whisper),
+    ]
+    results = [None] * len(providers)
+    print(f"Transcribing {audio_filename} with all providers asynchronously...")
+    with concurrent.futures.ThreadPoolExecutor() as executor:
+        future_to_idx = {
+            executor.submit(func, audio_filename): idx
+            for idx, (name, func) in enumerate(providers)
+        }
+        for future in concurrent.futures.as_completed(future_to_idx):
+            idx = future_to_idx[future]
+            name, _ = providers[idx]
+            try:
+                result = future.result()
+            except Exception as exc:
+                result = f"Exception: {exc}"
+            results[idx] = (name, result)
+            print(f"\n---\n- {name}\n- {result}\n")
+            # Write each result to its own file
+            out_path = os.path.join(run_dir, f"{name.replace(' ', '_').replace('-', '').replace('.', '')}.txt")
+            with open(out_path, 'w') as f:
+                f.write(result)
+    print(f"\nAll transcriptions saved in {run_dir}\n")
