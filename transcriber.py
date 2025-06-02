@@ -19,7 +19,7 @@ License: MIT
 import os
 import sys
 # Suppress all stderr output (ALSA/JACK and other native warnings)
-sys.stderr = open(os.devnull, 'w')
+# sys.stderr = open(os.devnull, 'w')  # DISABLED for debugging
 import contextlib
 import pyaudio
 import wave
@@ -229,7 +229,8 @@ def transcribe_groq_whisper(file_path):
 def transcribe_aws(file_path):
     """
     Transcribe audio using AWS Transcribe.
-    ... (existing code unchanged)
+    """
+    # ... (existing code unchanged)
 
 
 def transcribe_deepgram(file_path):
@@ -553,24 +554,58 @@ if __name__ == "__main__":
     os.makedirs(run_dir, exist_ok=True)
 
     providers = []
-    if config.get('assemblyai_api_key'):
+    def not_empty(val):
+        return val is not None and str(val).strip() != ''
+
+    providers = []
+    if not_empty(config.get('assemblyai_api_key')):
+        print("[INFO] Using AssemblyAI provider")
         providers.append(("AssemblyAI", transcribe_assemblyai))
-    if config.get('openai_api_key'):
+    else:
+        print("[INFO] Skipping AssemblyAI (no API key)")
+    if not_empty(config.get('openai_api_key')):
+        print("[INFO] Using OpenAI Whisper provider")
         providers.append(("OpenAI Whisper", transcribe_openai_whisper))
-    if config.get('groq_api_key') and config.get('groq_whisper_endpoint'):
+    else:
+        print("[INFO] Skipping OpenAI Whisper (no API key)")
+    if not_empty(config.get('groq_api_key')) and not_empty(config.get('groq_whisper_endpoint')):
+        print("[INFO] Using Groq Whisper provider")
         providers.append(("Groq Whisper Large-v3 Turbo", transcribe_groq_whisper))
-    if config.get('speechmatics_api_key'):
+    else:
+        print("[INFO] Skipping Groq Whisper (missing API key or endpoint)")
+    if not_empty(config.get('speechmatics_api_key')):
+        print("[INFO] Using Speechmatics provider")
         providers.append(("Speechmatics", transcribe_speechmatics))
-    if config.get('aws_access_key_id') and config.get('aws_secret_access_key') and config.get('aws_region'):
+    else:
+        print("[INFO] Skipping Speechmatics (no API key)")
+    if not_empty(config.get('aws_access_key_id')) and not_empty(config.get('aws_secret_access_key')) and not_empty(config.get('aws_region')):
+        print("[INFO] Using AWS Transcribe provider")
         providers.append(("AWS Transcribe", transcribe_aws))
-    if config.get('deepgram_api_key'):
+    else:
+        print("[INFO] Skipping AWS Transcribe (missing credentials)")
+    if not_empty(config.get('deepgram_api_key')):
+        print("[INFO] Using Deepgram provider")
         providers.append(("Deepgram", transcribe_deepgram))
-    if config.get('ibm_api_key') and config.get('ibm_url'):
+    else:
+        print("[INFO] Skipping Deepgram (no API key)")
+    if not_empty(config.get('ibm_api_key')) and not_empty(config.get('ibm_url')):
+        print("[INFO] Using IBM Watson provider")
         providers.append(("IBM Watson Speech to Text", transcribe_ibm))
-    if config.get('revai_api_key'):
+    else:
+        print("[INFO] Skipping IBM Watson (missing API key or URL)")
+    if not_empty(config.get('revai_api_key')):
+        print("[INFO] Using Rev AI provider")
         providers.append(("Rev AI", transcribe_revai))
-    if config.get('vatis_api_key'):
+    else:
+        print("[INFO] Skipping Rev AI (no API key)")
+    if not_empty(config.get('vatis_api_key')):
+        print("[INFO] Using Vatis Tech provider")
         providers.append(("Vatis Tech", transcribe_vatis))
+    else:
+        print("[INFO] Skipping Vatis Tech (no API key)")
+    if not providers:
+        print("[ERROR] No providers enabled. Please add at least one API key to config.json.")
+        sys.exit(1)
     results = [None] * len(providers)
     print(f"Transcribing {audio_filename} with all providers asynchronously...")
     with concurrent.futures.ThreadPoolExecutor() as executor:
