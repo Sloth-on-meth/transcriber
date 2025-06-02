@@ -56,7 +56,7 @@ This tool supports the following providers (runs all with API keys present):
 - ☁️ **AWS Transcribe**
 - 🦉 **Deepgram**
 - 🏛️ **IBM Watson Speech to Text**
-- 📝 **Rev AI**
+- 📝 **Rev AI** (currently disabled: output not usable for Dutch)
 - 🟣 **Vatis Tech**
 
 ---
@@ -92,6 +92,7 @@ Combined transcript saved as recordings/run_YYYYMMDD_HHMMSS/Combined_OpenAI.txt
 
 - Make sure your `config.json` is valid and contains the correct API keys.
 - Only providers with a valid API key will be used.
+- Rev AI is currently disabled due to unusable output for Dutch (raw JSON, not plain text).
 - If you get timeouts, try increasing the `timeout` value in your config.
 - For best results, use clear Dutch audio in WAV or MP3 format.
 

@@ -321,10 +321,21 @@ def transcribe_revai(file_path):
                 return f"Rev AI transcription failed: {status_resp.text}"
             time.sleep(5)
         # Get transcript
-        transcript_resp = requests.get(f"https://api.rev.ai/speechtotext/v1/jobs/{job_id}/transcript?accept=text/plain", headers=headers)
+        transcript_resp = requests.get(f"https://api.rev.ai/speechtotext/v1/jobs/{job_id}/transcript?accept=application/json", headers=headers)
         if transcript_resp.status_code != 200:
             return f"Rev AI transcript error: {transcript_resp.text}"
-        return transcript_resp.text.strip()
+        try:
+            data = transcript_resp.json()
+            # Rev AI returns monologues -> elements (type: text/punct)
+            monologues = data.get('monologues', [])
+            transcript = ''
+            for mono in monologues:
+                for el in mono.get('elements', []):
+                    if el.get('type') in ('text', 'punct'):
+                        transcript += el.get('value', '')
+            return transcript.strip()
+        except Exception:
+            return transcript_resp.text.strip()
     except Exception as e:
         return f"Rev AI error: {e}"
 
@@ -593,11 +604,12 @@ if __name__ == "__main__":
         providers.append(("IBM Watson Speech to Text", transcribe_ibm))
     else:
         print("[INFO] Skipping IBM Watson (missing API key or URL)")
-    if not_empty(config.get('revai_api_key')):
-        print("[INFO] Using Rev AI provider")
-        providers.append(("Rev AI", transcribe_revai))
-    else:
-        print("[INFO] Skipping Rev AI (no API key)")
+    # if not_empty(config.get('revai_api_key')):
+    #     print("[INFO] Using Rev AI provider")
+    #     providers.append(("Rev AI", transcribe_revai))
+    # else:
+    #     print("[INFO] Skipping Rev AI (no API key)")
+    # Rev AI disabled: output format not currently usable for Dutch transcription.
     if not_empty(config.get('vatis_api_key')):
         print("[INFO] Using Vatis Tech provider")
         providers.append(("Vatis Tech", transcribe_vatis))
