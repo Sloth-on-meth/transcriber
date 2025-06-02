@@ -1,23 +1,110 @@
-# Transcriber
+# 🚀 Transcriber
 
-This project takes an audio file (e.g., WAV or MP3), sends it to multiple speech-to-text (STT) providers in parallel, and saves each transcription to a separate file. Providers supported:
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/Sloth-on-meth/transcriber/releases)
+[![Python](https://img.shields.io/badge/python-3.8%2B-blue.svg)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Status](https://img.shields.io/badge/status-active-brightgreen.svg)](https://github.com/Sloth-on-meth/transcriber)
+
+**Transcriber** is a blazing fast, multi-provider audio transcription tool for Dutch audio. It runs all providers in parallel, combines results with OpenAI GPT, and saves everything in organized folders. Perfect for podcasts, interviews, or any multi-speaker Dutch audio!
+
+---
+
+## 📋 Table of Contents
+- [Features](#features)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Usage](#usage)
+- [Providers](#providers)
+- [Example Output](#example-output)
+- [Troubleshooting](#troubleshooting)
+- [Changelog](#changelog)
+- [Credits](#credits)
+
+---
+## ✨ Features
+
+- ⚡️ Parallel transcription with multiple providers
+- 🤖 Combines transcripts using OpenAI GPT
+- 🛠️ Easy config via `config.json`
+- 🎵 WAV & MP3 support
+- 📝 Custom prompts for Whisper & Groq
+- ⏱️ Configurable timeouts per provider
+- 📁 Clean output per run, easy to find results
+
+---
+
+## 💻 Usage
+
+Place your audio file in a folder (e.g. `to be transcribed/`). Then run:
+
+```bash
+python3 transcriber.py "to be transcribed/yourfile.wav"
+```
+
+All results are saved in a timestamped folder under `recordings/`.
+
+---
+
+## 🌐 Providers
+
+This tool supports the following providers (runs all with API keys present):
+
+- 🏢 **AssemblyAI**
+- 🤖 **OpenAI Whisper (API)**
+- ⚡ **Groq Whisper Large-v3 Turbo**
+- 🗣️ **Speechmatics**
+
+---
+
+## 📦 Example Output
+
+```
+Transcribing yourfile.wav with all providers asynchronously...
+[DEBUG] Starting transcription with AssemblyAI...
+[DEBUG] Starting transcription with OpenAI Whisper...
+[DEBUG] Starting transcription with Groq Whisper Large-v3 Turbo...
+[DEBUG] Starting transcription with Speechmatics...
+[DEBUG] ...
+
+---
 - AssemblyAI
-- OpenAI Whisper (API)
+- OpenAI Whisper
 - Groq Whisper Large-v3 Turbo
-- Google Cloud Speech-to-Text
+- Speechmatics
 
-All transcriptions are run asynchronously for speed. Results are printed to the console as they arrive and saved in a new timestamped subfolder in the `recordings/` directory for each run.
+======
+Gecombineerde transcriptie (OpenAI GPT):
+======
 
+[Combined transcript here]
 
-## Features
+Combined transcript saved as recordings/run_YYYYMMDD_HHMMSS/Combined_OpenAI.txt
+```
 
-- Parallel transcription with multiple providers
-- Combines transcripts using OpenAI GPT
-- Easy config via `config.json`
-- WAV file support
-- Support for prompts in OpenAI Whisper and Groq Whisper
-- Asynchronous transcription for improved speed
-- Automatic handling of AssemblyAI's Universal model
+---
+
+## 🛠️ Troubleshooting
+
+- Make sure your `config.json` is valid and contains the correct API keys.
+- Only providers with a valid API key will be used.
+- If you get timeouts, try increasing the `timeout` value in your config.
+- For best results, use clear Dutch audio in WAV or MP3 format.
+
+---
+
+## 📝 Changelog
+
+See [changelog.md](changelog.md) for release notes and updates.
+
+---
+
+## 👤 Credits
+
+Developed by [Sloth-on-meth](https://github.com/Sloth-on-meth) and contributors.
+
+MIT License.
+
+---
 
 ## Installation
 
