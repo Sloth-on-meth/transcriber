@@ -27,6 +27,7 @@ import tempfile
 import requests
 import json
 from datetime import datetime
+import boto3
 
 # === CONFIG ===
 CHUNK = 1024
@@ -224,6 +225,133 @@ def transcribe_groq_whisper(file_path):
         return resp.json().get('text', str(resp.json()))
     except Exception as e:
         return f"Groq Whisper error: {e}"
+
+def transcribe_aws(file_path):
+    """
+    Transcribe audio using AWS Transcribe.
+    ... (existing code unchanged)
+
+
+def transcribe_deepgram(file_path):
+    """
+    Transcribe audio using Deepgram API.
+    """
+    api_key = config.get('deepgram_api_key')
+    if not api_key:
+        return "Deepgram API key missing."
+    url = "https://api.deepgram.com/v1/listen"
+    headers = {
+        "Authorization": f"Token {api_key}"
+    }
+    with open(file_path, 'rb') as f:
+        audio = f.read()
+    params = {
+        "language": "nl"
+    }
+    try:
+        resp = requests.post(url, headers=headers, params=params, data=audio)
+        if resp.status_code != 200:
+            return f"Deepgram error: {resp.text}"
+        return resp.json()['results']['channels'][0]['alternatives'][0]['transcript']
+    except Exception as e:
+        return f"Deepgram error: {e}"
+
+
+def transcribe_ibm(file_path):
+    """
+    Transcribe audio using IBM Watson Speech to Text.
+    """
+    api_key = config.get('ibm_api_key')
+    url = config.get('ibm_url')
+    if not api_key or not url:
+        return "IBM Watson config missing."
+    from requests.auth import HTTPBasicAuth
+    with open(file_path, 'rb') as f:
+        audio = f.read()
+    headers = {
+        'Content-Type': 'audio/wav',
+    }
+    params = {
+        'model': 'nl-NL_BroadbandModel'
+    }
+    try:
+        resp = requests.post(
+            f"{url}/v1/recognize",
+            headers=headers,
+            params=params,
+            data=audio,
+            auth=HTTPBasicAuth('apikey', api_key)
+        )
+        if resp.status_code != 200:
+            return f"IBM Watson error: {resp.text}"
+        results = resp.json().get('results', [])
+        transcript = ' '.join([alt['transcript'] for r in results for alt in r.get('alternatives', [])])
+        return transcript.strip()
+    except Exception as e:
+        return f"IBM Watson error: {e}"
+
+
+def transcribe_revai(file_path):
+    """
+    Transcribe audio using Rev AI API.
+    """
+    api_key = config.get('revai_api_key')
+    if not api_key:
+        return "Rev AI API key missing."
+    url = "https://api.rev.ai/speechtotext/v1/jobs"
+    headers = {
+        "Authorization": f"Bearer {api_key}"
+    }
+    # Upload file
+    try:
+        with open(file_path, 'rb') as f:
+            upload_resp = requests.post(url, headers=headers, files={"media": f})
+        if upload_resp.status_code not in [200, 201]:
+            return f"Rev AI upload error: {upload_resp.text}"
+        job_id = upload_resp.json()['id']
+        # Poll for completion
+        import time
+        while True:
+            status_resp = requests.get(f"https://api.rev.ai/speechtotext/v1/jobs/{job_id}", headers=headers)
+            status = status_resp.json()['status']
+            if status == 'transcribed':
+                break
+            elif status == 'failed':
+                return f"Rev AI transcription failed: {status_resp.text}"
+            time.sleep(5)
+        # Get transcript
+        transcript_resp = requests.get(f"https://api.rev.ai/speechtotext/v1/jobs/{job_id}/transcript?accept=text/plain", headers=headers)
+        if transcript_resp.status_code != 200:
+            return f"Rev AI transcript error: {transcript_resp.text}"
+        return transcript_resp.text.strip()
+    except Exception as e:
+        return f"Rev AI error: {e}"
+
+
+def transcribe_vatis(file_path):
+    """
+    Transcribe audio using Vatis Tech API.
+    """
+    api_key = config.get('vatis_api_key')
+    if not api_key:
+        return "Vatis Tech API key missing."
+    url = "https://vatis.tech/api/v1/speech-to-text/asr"
+    headers = {
+        "x-api-key": api_key
+    }
+    files = {
+        'file': open(file_path, 'rb')
+    }
+    data = {
+        'language': 'nl'
+    }
+    try:
+        resp = requests.post(url, headers=headers, files=files, data=data)
+        if resp.status_code != 200:
+            return f"Vatis Tech error: {resp.text}"
+        return resp.json()['result']['text']
+    except Exception as e:
+        return f"Vatis Tech error: {e}"
 
 
 def transcribe(file_path):
@@ -433,6 +561,16 @@ if __name__ == "__main__":
         providers.append(("Groq Whisper Large-v3 Turbo", transcribe_groq_whisper))
     if config.get('speechmatics_api_key'):
         providers.append(("Speechmatics", transcribe_speechmatics))
+    if config.get('aws_access_key_id') and config.get('aws_secret_access_key') and config.get('aws_region'):
+        providers.append(("AWS Transcribe", transcribe_aws))
+    if config.get('deepgram_api_key'):
+        providers.append(("Deepgram", transcribe_deepgram))
+    if config.get('ibm_api_key') and config.get('ibm_url'):
+        providers.append(("IBM Watson Speech to Text", transcribe_ibm))
+    if config.get('revai_api_key'):
+        providers.append(("Rev AI", transcribe_revai))
+    if config.get('vatis_api_key'):
+        providers.append(("Vatis Tech", transcribe_vatis))
     results = [None] * len(providers)
     print(f"Transcribing {audio_filename} with all providers asynchronously...")
     with concurrent.futures.ThreadPoolExecutor() as executor:

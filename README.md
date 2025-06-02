@@ -53,6 +53,11 @@ This tool supports the following providers (runs all with API keys present):
 - 🤖 **OpenAI Whisper (API)**
 - ⚡ **Groq Whisper Large-v3 Turbo**
 - 🗣️ **Speechmatics**
+- ☁️ **AWS Transcribe**
+- 🦉 **Deepgram**
+- 🏛️ **IBM Watson Speech to Text**
+- 📝 **Rev AI**
+- 🟣 **Vatis Tech**
 
 ---
 
@@ -138,15 +143,43 @@ Create a `config.json` file in your project directory with your API keys and pro
 
 ```json
 {
-  "assemblyai_api_key": "YOUR_ASSEMBLYAI_API_KEY",
-  "openai_api_key": "YOUR_OPENAI_API_KEY",
-  "groq_api_key": "YOUR_GROQ_API_KEY",
-  "groq_whisper_endpoint": "https://api.groq.com/openai/v1/audio/transcriptions",
+  "assemblyai_api_key": "YOUR_ASSEMBLYAI_API_KEY",           // AssemblyAI API key
+  "speechmatics_api_key": "YOUR_SPEECHMATICS_API_KEY",       // Speechmatics API key
+  "openai_api_key": "YOUR_OPENAI_API_KEY",                   // OpenAI API key (Whisper)
+  "groq_api_key": "YOUR_GROQ_API_KEY",                       // Groq API key
+  "groq_whisper_endpoint": "https://api.groq.com/openai/v1/audio/transcriptions", // Groq Whisper endpoint
+
+  "aws_access_key_id": "YOUR_AWS_ACCESS_KEY_ID",             // AWS Access Key
+  "aws_secret_access_key": "YOUR_AWS_SECRET_ACCESS_KEY",     // AWS Secret Key
+  "aws_region": "YOUR_AWS_REGION",                           // AWS Region (e.g. eu-west-1)
+
+  "deepgram_api_key": "YOUR_DEEPGRAM_API_KEY",               // Deepgram API key
+
+  "ibm_api_key": "YOUR_IBM_API_KEY",                         // IBM Watson API key
+  "ibm_url": "YOUR_IBM_URL",                                 // IBM Watson service URL
+
+  "revai_api_key": "YOUR_REVAI_API_KEY",                     // Rev AI API key
+
+  "vatis_api_key": "YOUR_VATIS_API_KEY",                     // Vatis Tech API key
 
   "prompt": "Transcribe the following Dutch audio as accurately as possible.",
-  "combine_prompt": "You will receive multiple transcripts of the same audio file. Combine these into a single transcript that is as accurate and complete as possible, without summarizing. Preserve original sentences, order, and details. Only correct errors if absolutely necessary for clarity. Do not add anything that was not in the original transcripts."
+  "combine_prompt": "You will receive multiple transcripts of the same audio file. Combine these into a single transcript that is as accurate and complete as possible, without summarizing. Preserve original sentences, order, and details. Only correct errors if absolutely necessary for clarity. Do not add anything that was not in the original transcripts.",
+  "timeout": 10                                               // Optional: timeout in seconds for provider requests
 }
 ```
+
+- `assemblyai_api_key`: Get yours at https://www.assemblyai.com/
+- `speechmatics_api_key`: Get yours at https://www.speechmatics.com/
+- `openai_api_key`: Get yours at https://platform.openai.com/api-keys
+- `groq_api_key`: Get yours at https://console.groq.com/
+- `aws_access_key_id`, `aws_secret_access_key`, `aws_region`: From your AWS IAM user and region
+- `deepgram_api_key`: Get yours at https://console.deepgram.com/
+- `ibm_api_key` and `ibm_url`: Get from your IBM Cloud Speech to Text service instance
+- `revai_api_key`: Get yours at https://www.rev.ai/
+- `vatis_api_key`: Get yours at https://vatis.tech/
+- `prompt`, `combine_prompt`: Optional, used for prompt customization
+- `timeout`: Optional, request timeout in seconds
+
 
 - The `prompt` field is optional and will be used by providers that support it (OpenAI Whisper, Groq Whisper).
 - The `combine_prompt` field is used as the system prompt when sending all STT results to OpenAI ChatGPT for the final, combined transcript. If not set, a default Dutch DND prompt is used.
@@ -167,6 +200,14 @@ Create a `config.json` file in your project directory with your API keys and pro
 4. Each provider's output is saved as a separate text file in that folder (e.g., `AssemblyAI.txt`, `Speechmatics.txt`, etc.).
 5. Results are printed to the console as soon as they are ready.
 
+
+## Other Cloud APIs with Free Tiers
+
+You can also consider integrating these APIs in the future:
+- **Deepgram** — 200 minutes/month free ([docs](https://developers.deepgram.com/docs/))
+- **IBM Watson Speech to Text** — 500 minutes/month free ([docs](https://cloud.ibm.com/apidocs/speech-to-text))
+- **Rev AI** — 5 hours free trial ([docs](https://www.rev.ai/docs))
+- **Vatis Tech** — 5 hours/month free ([docs](https://vatis.tech/))
 
 ## Notes
 - This project is experimental. Accuracy and reliability depend on the external STT providers.
