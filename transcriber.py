@@ -275,51 +275,9 @@ def transcribe(file_path):
 
 import shutil
 
-# Google Cloud Speech imports
-try:
-    from google.cloud import speech
-    from google.oauth2 import service_account
-except ImportError:
-    speech = None
-    service_account = None
 
-def transcribe_google(file_path):
-    creds_path = config.get('google_application_credentials')
-    if not creds_path:
-        return "Google credentials path missing in config.json (google_application_credentials)"
-    if speech is None or service_account is None:
-        return "google-cloud-speech not installed. Please add it to requirements.txt."
-    credentials = service_account.Credentials.from_service_account_file(creds_path)
-    client = speech.SpeechClient(credentials=credentials)
-    import wave
-    try:
-        with wave.open(file_path, 'rb') as wf:
-            sample_rate = wf.getframerate()
-            nframes = wf.getnframes()
-            nchannels = wf.getnchannels()
-            sampwidth = wf.getsampwidth()
-            duration = nframes / float(sample_rate)
-            audio_content = wf.readframes(nframes)
-    except Exception as e:
-        return f"Google STT error reading WAV: {e}"
-    audio = speech.RecognitionAudio(content=audio_content)
-    config_g = speech.RecognitionConfig(
-        encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
-        sample_rate_hertz=sample_rate,
-        language_code='nl-NL',
-        enable_automatic_punctuation=True,
-    )
-    try:
-        if duration > 60:
-            operation = client.long_running_recognize(config=config_g, audio=audio)
-            print("Google STT: waiting for long-running recognize...")
-            response = operation.result(timeout=600)
-        else:
-            response = client.recognize(config=config_g, audio=audio)
-        transcript = '\n'.join([result.alternatives[0].transcript for result in response.results])
-        return transcript
-    except Exception as e:
-        return f"Google STT error: {e}"
+
+
 
 def ensure_recordings_dir():
     if not os.path.exists('recordings'):

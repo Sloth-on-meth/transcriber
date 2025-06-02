@@ -128,7 +128,7 @@ pip install requests openai google-cloud-speech
 
 - `requests` for API calls
 - `openai` for OpenAI Whisper and ChatGPT integration
-- `google-cloud-speech` for Google Cloud Speech-to-Text integration
+
 
 ## Configuration
 
@@ -142,7 +142,7 @@ Create a `config.json` file in your project directory with your API keys and pro
   "openai_api_key": "YOUR_OPENAI_API_KEY",
   "groq_api_key": "YOUR_GROQ_API_KEY",
   "groq_whisper_endpoint": "https://api.groq.com/openai/v1/audio/transcriptions",
-  "google_application_credentials": "path/to/your_google_service_account.json",
+
   "prompt": "Transcribe the following Dutch audio as accurately as possible.",
   "combine_prompt": "You will receive multiple transcripts of the same audio file. Combine these into a single transcript that is as accurate and complete as possible, without summarizing. Preserve original sentences, order, and details. Only correct errors if absolutely necessary for clarity. Do not add anything that was not in the original transcripts."
 }
@@ -167,11 +167,6 @@ Create a `config.json` file in your project directory with your API keys and pro
 4. Each provider's output is saved as a separate text file in that folder (e.g., `AssemblyAI.txt`, `Speechmatics.txt`, etc.).
 5. Results are printed to the console as soon as they are ready.
 
-## Google Cloud Setup
-- Create a Google Cloud project and enable the Speech-to-Text API.
-- Create a service account and download the JSON key file.
-- Add the path to this file as `google_application_credentials` in your config.json.
-- The script will use this key for authentication.
 
 ## Notes
 - This project is experimental. Accuracy and reliability depend on the external STT providers.
