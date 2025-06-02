@@ -8,17 +8,46 @@ This project takes an audio file (e.g., WAV or MP3), sends it to multiple speech
 
 All transcriptions are run asynchronously for speed. Results are printed to the console as they arrive and saved in a new timestamped subfolder in the `recordings/` directory for each run.
 
-After all transcriptions are finished, the script sends them to OpenAI ChatGPT with the following prompt (in Dutch):
 
+## Features
+
+- Parallel transcription with multiple providers
+- Combines transcripts using OpenAI GPT
+- Easy config via `config.json`
+- WAV file support
+- Support for prompts in OpenAI Whisper and Groq Whisper
+- Asynchronous transcription for improved speed
+- Automatic handling of AssemblyAI's Universal model
+
+## Installation
+
+### Using pip
+
+```bash
+pip install requests openai google-cloud-speech
 ```
-dit zijn verschillende transcripties van 1 opname van een DND sessie. maak er 1 coherente transcriptie van
+
+### Using venv
+
+Create a new virtual environment and install the required dependencies:
+
+```bash
+python -m venv venv
+source venv/bin/activate
+pip install requests openai google-cloud-speech
 ```
 
-The combined, coherent transcript is printed to the console and saved as `Combined_OpenAI.txt` in the same run folder.
+### Dependencies
 
-## Example config.json
+- `requests` for API calls
+- `openai` for OpenAI Whisper and ChatGPT integration
+- `google-cloud-speech` for Google Cloud Speech-to-Text integration
+
+## Configuration
 
 Create a `config.json` file in your project directory with your API keys and prompts:
+
+### Example config.json
 
 ```json
 {
@@ -27,12 +56,11 @@ Create a `config.json` file in your project directory with your API keys and pro
   "groq_api_key": "YOUR_GROQ_API_KEY",
   "groq_whisper_endpoint": "https://api.groq.com/openai/v1/audio/transcriptions",
   "google_application_credentials": "path/to/your_google_service_account.json",
-  "prompt": "Optional prompt for STT providers that support it.",
-  "combine_prompt": "System prompt for combining all transcriptions into one coherent text."
+  "prompt": "Transcribe the following Dutch audio as accurately as possible.",
+  "combine_prompt": "You will receive multiple transcripts of the same audio file. Combine these into a single transcript that is as accurate and complete as possible, without summarizing. Preserve original sentences, order, and details. Only correct errors if absolutely necessary for clarity. Do not add anything that was not in the original transcripts."
 }
 ```
 
-- The `google_application_credentials` field should point to your Google Cloud service account JSON key file. See below for setup instructions.
 - The `prompt` field is optional and will be used by providers that support it (OpenAI Whisper, Groq Whisper).
 - The `combine_prompt` field is used as the system prompt when sending all STT results to OpenAI ChatGPT for the final, combined transcript. If not set, a default Dutch DND prompt is used.
 - AssemblyAI currently does not support prompts for the default Universal model (the script handles this automatically).

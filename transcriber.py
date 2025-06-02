@@ -1,3 +1,21 @@
+"""
+Transcriber
+
+A Python tool to transcribe audio files using multiple cloud STT providers in parallel (AssemblyAI, OpenAI Whisper, Groq Whisper, Speechmatics) and combine the results using OpenAI ChatGPT.
+
+Usage:
+    python transcriber.py <audiofile.wav>
+
+Configuration:
+    - See config.json for API keys and prompt customization.
+    - Providers run in parallel for speed.
+    - Each result is saved in recordings/<run_dir>/Provider.txt
+    - Combined transcript is saved as Combined_OpenAI.txt
+
+Author: sam
+License: MIT
+"""
+
 import os
 import sys
 # Suppress all stderr output (ALSA/JACK and other native warnings)
@@ -24,6 +42,13 @@ with open('config.json') as f:
 assemblyai_api_key = config['assemblyai_api_key']
 
 def record_to_file(filename, duration):
+    """
+    Record audio from the default microphone and save as a WAV file.
+
+    Args:
+        filename (str): Output filename for the WAV file.
+        duration (int): Duration of the recording in seconds.
+    """
     # Suppress ALSA/JACK and other audio backend warnings
     with open(os.devnull, 'w') as devnull, contextlib.redirect_stderr(devnull):
         audio = pyaudio.PyAudio()
@@ -46,6 +71,160 @@ def record_to_file(filename, duration):
             wf.setsampwidth(audio.get_sample_size(FORMAT))
             wf.setframerate(RATE)
             wf.writeframes(b''.join(frames))
+
+def ensure_recordings_dir():
+    """
+    Ensure that the 'recordings' directory exists in the project root.
+    Creates the directory if it does not exist.
+    """
+    if not os.path.exists('recordings'):
+        os.makedirs('recordings')
+
+def transcribe_assemblyai(file_path):
+    """
+    Transcribe audio using AssemblyAI API.
+
+    Args:
+        file_path (str): Path to the audio file.
+    Returns:
+        str: The transcribed text or an error message.
+    """
+    headers = {'authorization': assemblyai_api_key}
+    with open(file_path, 'rb') as f:
+        upload_response = requests.post('https://api.assemblyai.com/v2/upload', headers=headers, data=f)
+    if upload_response.status_code != 200:
+        return f"AssemblyAI upload failed: {upload_response.text}"
+    upload_url = upload_response.json().get('upload_url')
+    transcript_request = {'audio_url': upload_url, 'language_code': 'nl'}
+    transcript_response = requests.post('https://api.assemblyai.com/v2/transcript', headers=headers, json=transcript_request)
+    response_json = transcript_response.json()
+    if 'id' not in response_json:
+        return f"AssemblyAI error: {response_json}"
+    transcript_id = response_json['id']
+    while True:
+        poll_response = requests.get(f'https://api.assemblyai.com/v2/transcript/{transcript_id}', headers=headers)
+        status = poll_response.json()['status']
+        if status == 'completed':
+            return poll_response.json()['text']
+        elif status == 'failed':
+            return f"AssemblyAI transcription failed: {poll_response.json().get('error', 'Unknown error')}"
+        import time; time.sleep(3)
+
+def transcribe_speechmatics(file_path):
+    """
+    Transcribe audio using Speechmatics API.
+
+    Args:
+        file_path (str): Path to the audio file.
+    Returns:
+        str: The transcribed text or an error message.
+    """
+    import json as _json
+    api_key = config.get('speechmatics_api_key')
+    if not api_key:
+        return "Speechmatics API key missing."
+    url = "https://asr.api.speechmatics.com/v2/jobs/"
+    headers = {"Authorization": f"Bearer {api_key}"}
+    files = {"data_file": open(file_path, "rb")}
+    data = {
+        "config": _json.dumps({
+            "type": "transcription",
+            "transcription_config": {
+                "language": "nl"
+            }
+        })
+    }
+    job_resp = requests.post(url, headers=headers, files=files, data=data)
+    if job_resp.status_code != 201:
+        return f"Speechmatics job error: {job_resp.text}"
+    job_id = job_resp.json().get('id')
+    import time
+    while True:
+        status_resp = requests.get(f"{url}{job_id}/", headers=headers)
+        status = status_resp.json().get('job', {}).get('job_status')
+        if status == 'done':
+            transcript_url = f"{url}{job_id}/transcript?format=txt"
+            transcript_resp = requests.get(transcript_url, headers=headers)
+            return transcript_resp.text.strip()
+        elif status == 'failed':
+            return f"Speechmatics failed: {status_resp.text}"
+        time.sleep(3)
+
+def transcribe_openai_whisper(file_path):
+    """
+    Transcribe audio using OpenAI Whisper API.
+
+    Args:
+        file_path (str): Path to the audio file.
+    Returns:
+        str: The transcribed text or an error message.
+    """
+    try:
+        import openai
+        api_key = config.get('openai_api_key')
+        if not api_key:
+            return "OpenAI API key missing."
+        prompt = config.get('prompt')
+        try:
+            from openai import OpenAI
+            client = OpenAI(api_key=api_key)
+            with open(file_path, "rb") as audio_file:
+                transcript = client.audio.transcriptions.create(
+                    model="whisper-1",
+                    file=audio_file,
+                    language="nl",
+                    prompt=prompt if prompt else None
+                )
+            return transcript.text
+        except ImportError:
+            openai.api_key = api_key
+            with open(file_path, "rb") as audio_file:
+                transcript = openai.Audio.transcribe(
+                    model="whisper-1",
+                    file=audio_file,
+                    language="nl",
+                    prompt=prompt if prompt else None
+                )
+            return transcript['text']
+        except Exception as e:
+            return f"OpenAI Whisper error: {e}"
+    except Exception as e:
+        return f"OpenAI Whisper error: {e}"
+
+def transcribe_groq_whisper(file_path):
+    """
+    Transcribe audio using Groq Whisper API.
+
+    Args:
+        file_path (str): Path to the audio file.
+    Returns:
+        str: The transcribed text or an error message.
+    """
+    api_key = config.get('groq_api_key')
+    endpoint = config.get('groq_whisper_endpoint')
+    if not api_key or not endpoint:
+        return "Groq config missing."
+    headers = {
+        'Authorization': f'Bearer {api_key}'
+    }
+    files = {
+        'file': open(file_path, 'rb')
+    }
+    data = {
+        'model': 'whisper-large-v3',
+        'language': 'nl'
+    }
+    prompt = config.get('prompt')
+    if prompt:
+        data['prompt'] = prompt
+    try:
+        resp = requests.post(endpoint, headers=headers, files=files, data=data)
+        if resp.status_code != 200:
+            return f"Groq Whisper error: {resp.text}"
+        return resp.json().get('text', str(resp.json()))
+    except Exception as e:
+        return f"Groq Whisper error: {e}"
+
 
 def transcribe(file_path):
     # Transcription logic for AssemblyAI, with Dutch language and DND prompt
