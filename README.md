@@ -4,7 +4,7 @@ This project takes an audio file (e.g., WAV or MP3), sends it to multiple speech
 - AssemblyAI
 - OpenAI Whisper (API)
 - Groq Whisper Large-v3 Turbo
-- Google Cloud Speech-to-Text
+- Speechmatics
 
 All transcriptions are run asynchronously for speed. Results are printed to the console as they arrive and saved in a new timestamped subfolder in the `recordings/` directory for each run.
 
@@ -24,7 +24,7 @@ All transcriptions are run asynchronously for speed. Results are printed to the 
 ### Using pip
 
 ```bash
-pip install requests openai google-cloud-speech
+pip install requests openai
 ```
 
 ### Using venv
@@ -34,7 +34,7 @@ Create a new virtual environment and install the required dependencies:
 ```bash
 python -m venv venv
 source venv/bin/activate
-pip install requests openai google-cloud-speech
+pip install requests openai
 ```
 
 ### Dependencies
@@ -70,7 +70,7 @@ Create a `config.json` file in your project directory with your API keys and pro
 
 1. Install dependencies:
    ```bash
-   pip install requests openai google-cloud-speech
+   pip install requests openai 
    ```
 2. Run the script with an audio file:
    ```bash
