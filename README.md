@@ -111,7 +111,7 @@ MIT License.
 ### Using pip
 
 ```bash
-pip install requests openai google-cloud-speech
+pip install requests openai
 ```
 
 ### Using venv
@@ -121,7 +121,7 @@ Create a new virtual environment and install the required dependencies:
 ```bash
 python -m venv venv
 source venv/bin/activate
-pip install requests openai google-cloud-speech
+pip install requests openai
 ```
 
 ### Dependencies
@@ -157,7 +157,7 @@ Create a `config.json` file in your project directory with your API keys and pro
 
 1. Install dependencies:
    ```bash
-   pip install requests openai google-cloud-speech
+   pip install requests openai
    ```
 2. Run the script with an audio file:
    ```bash
