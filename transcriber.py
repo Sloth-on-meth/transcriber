@@ -96,6 +96,52 @@ def transcribe(file_path):
 
 import shutil
 
+# Google Cloud Speech imports
+try:
+    from google.cloud import speech
+    from google.oauth2 import service_account
+except ImportError:
+    speech = None
+    service_account = None
+
+def transcribe_google(file_path):
+    creds_path = config.get('google_application_credentials')
+    if not creds_path:
+        return "Google credentials path missing in config.json (google_application_credentials)"
+    if speech is None or service_account is None:
+        return "google-cloud-speech not installed. Please add it to requirements.txt."
+    credentials = service_account.Credentials.from_service_account_file(creds_path)
+    client = speech.SpeechClient(credentials=credentials)
+    import wave
+    try:
+        with wave.open(file_path, 'rb') as wf:
+            sample_rate = wf.getframerate()
+            nframes = wf.getnframes()
+            nchannels = wf.getnchannels()
+            sampwidth = wf.getsampwidth()
+            duration = nframes / float(sample_rate)
+            audio_content = wf.readframes(nframes)
+    except Exception as e:
+        return f"Google STT error reading WAV: {e}"
+    audio = speech.RecognitionAudio(content=audio_content)
+    config_g = speech.RecognitionConfig(
+        encoding=speech.RecognitionConfig.AudioEncoding.LINEAR16,
+        sample_rate_hertz=sample_rate,
+        language_code='nl-NL',
+        enable_automatic_punctuation=True,
+    )
+    try:
+        if duration > 60:
+            operation = client.long_running_recognize(config=config_g, audio=audio)
+            print("Google STT: waiting for long-running recognize...")
+            response = operation.result(timeout=600)
+        else:
+            response = client.recognize(config=config_g, audio=audio)
+        transcript = '\n'.join([result.alternatives[0].transcript for result in response.results])
+        return transcript
+    except Exception as e:
+        return f"Google STT error: {e}"
+
 def ensure_recordings_dir():
     if not os.path.exists('recordings'):
         os.makedirs('recordings')
@@ -249,23 +295,29 @@ if __name__ == "__main__":
     results = [None] * len(providers)
     print(f"Transcribing {audio_filename} with all providers asynchronously...")
     with concurrent.futures.ThreadPoolExecutor() as executor:
-        future_to_idx = {
-            executor.submit(func, audio_filename): idx
-            for idx, (name, func) in enumerate(providers)
-        }
+        future_to_idx = {}
+        for idx, (name, func) in enumerate(providers):
+            print(f"[DEBUG] Starting transcription with {name}...")
+            future = executor.submit(func, audio_filename)
+            future_to_idx[future] = idx
+        any_results = False
         for future in concurrent.futures.as_completed(future_to_idx):
             idx = future_to_idx[future]
             name, _ = providers[idx]
             try:
                 result = future.result()
+                print(f"[DEBUG] {name} finished. Result: {result[:100] if isinstance(result, str) else result}")
+                any_results = True
             except Exception as exc:
                 result = f"Exception: {exc}"
+                print(f"[ERROR] Exception from {name}: {exc}")
             results[idx] = (name, result)
             print(f"\n---\n- {name}\n- {result}\n")
-            # Write each result to its own file
-            out_path = os.path.join(run_dir, f"{name.replace(' ', '_').replace('-', '').replace('.', '')}.txt")
-            with open(out_path, 'w') as f:
-                f.write(result)
+            output_file = os.path.join(run_dir, f"{name.replace(' ', '_')}.txt")
+            with open(output_file, 'w', encoding='utf-8') as out_f:
+                out_f.write(result if isinstance(result, str) else str(result))
+        if not any_results:
+            print("[ERROR] No transcription results returned from any provider.")
 
     print(f"\nAll transcriptions saved in {run_dir}\n")
 
