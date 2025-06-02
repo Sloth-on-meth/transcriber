@@ -466,12 +466,19 @@ if __name__ == "__main__":
     run_dir = os.path.join('recordings', f'run_{timestamp}')
     os.makedirs(run_dir, exist_ok=True)
 
-    providers = [
-        ("AssemblyAI", transcribe_assemblyai),
-        ("OpenAI Whisper", transcribe_openai_whisper),
-        ("Groq Whisper Large-v3 Turbo", transcribe_groq_whisper),
-    ]
-    results = [None] * len(providers)
+    # Providers: Only use those for which a key is configured
+    providers = []
+    if config.get('assemblyai_api_key'):
+        providers.append(("AssemblyAI", transcribe_assemblyai))
+    if config.get('openai_api_key'):
+        providers.append(("OpenAI Whisper", transcribe_openai_whisper))
+    if config.get('groq_api_key') and config.get('groq_whisper_endpoint'):
+        providers.append(("Groq Whisper Large-v3 Turbo", transcribe_groq_whisper))
+    if config.get('speechmatics_api_key'):
+        providers.append(("Speechmatics", transcribe_speechmatics))
+    if not providers:
+        print("[ERROR] No valid provider API keys found in config.json. Please configure at least one provider.")
+        sys.exit(1)
     print(f"Transcribing {audio_filename} with all providers asynchronously...")
     with concurrent.futures.ThreadPoolExecutor() as executor:
         future_to_idx = {}
